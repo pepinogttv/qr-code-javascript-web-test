@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Scanner</title>
+  </head>
+  <body>
+    <h1>QR Code Scanner</h1>
+    <video id="video" width="300" height="300" autoplay></video>
+    <div id="result"></div>
+    <div id="lala"></div>
+    <dialog id="dialog">
+      <div id="dialogContent"></div>
+      <form method="dialog">
+        <button id="confirm-btn">ESTE PASA</button>
+      </form>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr"></script>
+    <script>
+      function getStreamOfIntegratedCamera() {
+        return navigator.mediaDevices
+          .enumerateDevices()
+          .then(async (devices) => {
+            const videoDevices = devices.filter(
+              (device) => device.kind === "videoinput"
+            );
+            const integratedCameraId =
+              "638f4313059c0b8091a1adf83cf0ea4397314b933a53a7282049e1ab9a1c6b39";
+            const device = videoDevices.find((device) => {
+              return device.deviceId === integratedCameraId;
+            });
+            if (!device) return null;
+            return navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: device.deviceId,
+              },
+            });
+          })
+          .catch((error) => {
+            console.error("Error al acceder a la cámara:", error);
+          });
+      }
+
+      async function startCamera() {
+        try {
+          // Get user's camera stream
+          const stream = await getStreamOfIntegratedCamera();
+          video.srcObject = stream;
+
+          const canvas = document.createElement("canvas");
+          const canvasContext = canvas.getContext("2d");
+
+          result.appendChild(canvas);
+
+          startScannerInterval();
+          function startScannerInterval() {
+            const scannerInterval = setInterval(() => {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+              // video HTMLVideoElement
+              const imageData = canvasContext.getImageData(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+
+              let code = jsQR(
+                imageData.data,
+                imageData.width,
+                imageData.height
+              );
+
+              // const decrypt = (encryptedId) => {
+              //     return 1
+              // }
+
+              if (code) {
+                code = 1;
+
+                clearInterval(scannerInterval);
+
+                fetch(`https://jsonplaceholder.typicode.com/users/${code}`)
+                  .then((response) => response.json())
+                  .then((json) => {
+                    dialog.showModal();
+                    dialogContent.innerHTML = `
+                    <p>${json.name}</p>
+                    <p>${json.email}</p>
+                    <p>${json.phone}</p>
+                  `;
+                  });
+              }
+            }, 100);
+          }
+
+          const confirmBtn = document.getElementById("confirm-btn");
+          confirmBtn.addEventListener("click", () => {
+            dialog.close();
+            startScannerInterval();
+          });
+        } catch (error) {
+          console.error("Error accessing the camera:", error);
+        }
+      }
+
+      // Check for browser support
+      if (
+        "mediaDevices" in navigator &&
+        "getUserMedia" in navigator.mediaDevices
+      ) {
+        startCamera();
+      } else {
+        resultDiv.innerText =
+          "QR code scanning is not supported in this browser.";
+      }
+    </script>
+  </body>
+</html>
